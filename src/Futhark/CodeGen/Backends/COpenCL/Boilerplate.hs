@@ -65,9 +65,7 @@ copyScalarFromDev = "copy_scalar_from_dev"
 profilingEvent :: Name -> C.Exp
 profilingEvent name =
   [C.cexp|(ctx->profiling_paused || !ctx->profiling) ? NULL
-          : opencl_get_event(ctx,
-                             &ctx->program->$id:(kernelRuns name),
-                             &ctx->program->$id:(kernelRuntime name))|]
+          : opencl_get_event(ctx, $string:(prettyString name))|]
 
 releaseKernel :: (KernelName, KernelSafety) -> C.Stm
 releaseKernel (name, _) = [C.cstm|OPENCL_SUCCEED_FATAL(clReleaseKernel(ctx->program->$id:name));|]
@@ -107,15 +105,16 @@ generateOpenCLDecls cost_centres kernels = do
       [C.cty|typename cl_kernel|]
       (loadKernel (name, safety))
       (releaseKernel (name, safety))
-  forM_ (cost_centres <> M.keys kernels) $ \name -> do
-    GC.contextField
-      (C.toIdent (kernelRuntime name) mempty)
-      [C.cty|typename int64_t|]
-      (Just [C.cexp|0|])
-    GC.contextField
-      (C.toIdent (kernelRuns name) mempty)
-      [C.cty|int|]
-      (Just [C.cexp|0|])
+-- REMOVED BY COMMENTING
+--  forM_ (cost_centres <> M.keys kernels) $ \name -> do
+--    GC.contextField
+--      (C.toIdent (kernelRuntime name) mempty)
+--      [C.cty|typename int64_t|]
+--      (Just [C.cexp|0|])
+--    GC.contextField
+--      (C.toIdent (kernelRuns name) mempty)
+--      [C.cty|int|]
+--      (Just [C.cexp|0|])
   GC.earlyDecl
     [C.cedecl|
 void post_opencl_setup(struct futhark_context *ctx, struct opencl_device_option *option) {
