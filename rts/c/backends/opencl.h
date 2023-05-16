@@ -1225,6 +1225,7 @@ void backend_context_teardown(struct futhark_context* ctx) {
   OPENCL_SUCCEED_FATAL(clReleaseMemObject(ctx->global_failure));
   OPENCL_SUCCEED_FATAL(clReleaseMemObject(ctx->global_failure_args));
   (void)opencl_tally_profiling_records(ctx);
+  free(ctx->report->str);
   free(ctx->profiling_records);
   (void)opencl_free_all(ctx);
   (void)clReleaseProgram(ctx->clprogram);
