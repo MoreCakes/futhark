@@ -465,8 +465,7 @@ int futhark_context_config_set_tuning_param(struct futhark_context_config *cfg,
 // A record of something that happened.
 struct profiling_record {
   cl_event *event;
-  int *runs;
-  int64_t *runtime;
+  char *name;
 };
 
 struct futhark_context {
@@ -493,8 +492,7 @@ struct futhark_context {
   struct tuning_params tuning_params;
   // True if a potentially failing kernel has been enqueued.
   cl_int failure_is_an_option;
-  int total_runs;
-  long int total_runtime;
+  struct str_builder *report;
   int64_t peak_mem_usage_device;
   int64_t cur_mem_usage_device;
 
@@ -603,12 +601,15 @@ static char* mk_compile_opts(struct futhark_context *ctx,
 // Count up the runtime all the profiling_records that occured during execution.
 // Also clears the buffer of profiling_records.
 static cl_int opencl_tally_profiling_records(struct futhark_context *ctx) {
+  struct str_builder builder;
+  str_builder_init(&builder);
+    
   cl_int err;
   for (int i = 0; i < ctx->profiling_records_used; i++) {
     struct profiling_record record = ctx->profiling_records[i];
 
     cl_ulong start_t, end_t;
-
+    
     if ((err = clGetEventProfilingInfo(*record.event,
                                        CL_PROFILING_COMMAND_START,
                                        sizeof(start_t),
@@ -627,22 +628,30 @@ static cl_int opencl_tally_profiling_records(struct futhark_context *ctx) {
 
     // OpenCL provides nanosecond resolution, but we want
     // microseconds.
-    *record.runs += 1;
-    *record.runtime += (end_t - start_t)/1000;
+    str_builder(&builder, "    {\"Name\":\"%s\",\"Start\":%lu,\"End\":%lu}", record.name, start_t/1000, end_t/1000);
+    if (i+1 < ctx->profiling_records_used) {
+      str_builder(&builder, ",\n");
+    } else {
+      str_builder(&builder, "\n");
+    }
 
     if ((err = clReleaseEvent(*record.event)) != CL_SUCCESS) {
       return err;
     }
     free(record.event);
   }
-
+  
   ctx->profiling_records_used = 0;
-
+  
+  str_builder(ctx->report, builder.str);
+  
+  free(builder.str);
+  
   return CL_SUCCESS;
 }
 
 // If profiling, produce an event associated with a profiling record.
-static cl_event* opencl_get_event(struct futhark_context *ctx, int *runs, int64_t *runtime) {
+static cl_event* opencl_get_event(struct futhark_context *ctx, char* name) {
   if (ctx->profiling_records_used == ctx->profiling_records_capacity) {
     ctx->profiling_records_capacity *= 2;
     ctx->profiling_records =
@@ -652,8 +661,7 @@ static cl_event* opencl_get_event(struct futhark_context *ctx, int *runs, int64_
   }
   cl_event *event = malloc(sizeof(cl_event));
   ctx->profiling_records[ctx->profiling_records_used].event = event;
-  ctx->profiling_records[ctx->profiling_records_used].runs = runs;
-  ctx->profiling_records[ctx->profiling_records_used].runtime = runtime;
+  ctx->profiling_records[ctx->profiling_records_used].name = name;
   ctx->profiling_records_used++;
   return event;
 }
@@ -1184,8 +1192,9 @@ int backend_context_setup(struct futhark_context* ctx) {
     malloc(ctx->profiling_records_capacity *
            sizeof(struct profiling_record));
   ctx->failure_is_an_option = 0;
-  ctx->total_runs = 0;
-  ctx->total_runtime = 0;
+  ctx->report = malloc(sizeof(struct str_builder));
+  str_builder_init(ctx->report);
+  str_builder(ctx->report, "{\n  \"Events\":[\n");
   ctx->peak_mem_usage_device = 0;
   ctx->cur_mem_usage_device = 0;
 
