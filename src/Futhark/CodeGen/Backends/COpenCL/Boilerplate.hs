@@ -95,26 +95,15 @@ loadKernel (name, safety) =
       SafetyFull -> [set_global_failure, set_global_failure_args]
 
 generateOpenCLDecls ::
-  [Name] ->
   M.Map KernelName KernelSafety ->
   GC.CompilerM op s ()
-generateOpenCLDecls cost_centres kernels = do
+generateOpenCLDecls kernels = do
   forM_ (M.toList kernels) $ \(name, safety) ->
     GC.contextFieldDyn
       (C.toIdent name mempty)
       [C.cty|typename cl_kernel|]
       (loadKernel (name, safety))
       (releaseKernel (name, safety))
--- REMOVED BY COMMENTING
---  forM_ (cost_centres <> M.keys kernels) $ \name -> do
---    GC.contextField
---      (C.toIdent (kernelRuntime name) mempty)
---      [C.cty|typename int64_t|]
---      (Just [C.cexp|0|])
---    GC.contextField
---      (C.toIdent (kernelRuns name) mempty)
---      [C.cty|int|]
---      (Just [C.cexp|0|])
   GC.earlyDecl
     [C.cedecl|
 void post_opencl_setup(struct futhark_context *ctx, struct opencl_device_option *option) {
@@ -151,7 +140,7 @@ generateBoilerplate opencl_program opencl_prelude cost_centres kernels types fai
             |]
   GC.earlyDecl $ failureMsgFunction failures
 
-  generateOpenCLDecls cost_centres kernels
+  generateOpenCLDecls kernels
 
   GC.headerDecl GC.InitDecl [C.cedecl|void futhark_context_config_add_build_option(struct futhark_context_config *cfg, const char* opt);|]
   GC.headerDecl GC.InitDecl [C.cedecl|void futhark_context_config_set_device(struct futhark_context_config *cfg, const char* s);|]
