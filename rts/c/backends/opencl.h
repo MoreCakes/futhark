@@ -643,6 +643,155 @@ static cl_int opencl_tally_profiling_records(struct futhark_context *ctx) {
   free(builder.str);
   
   return CL_SUCCESS;
+}struct run_counter {
+    int capacity;
+    int used;
+    struct run_count *counts;
+};
+
+struct run_count {
+    char *name;
+    int runs;
+    long int runtime;
+};
+
+static void run_counter_init (struct run_counter *rc) {
+    rc->capacity = 10;
+    rc->used = 0;
+    rc->counts = malloc(rc->capacity*sizeof(struct run_count));
+}
+
+static void run_counter_free_contents (struct run_counter *rc) {
+    for (int i = 0; i < rc->used; i++) {
+        free (rc->counts[i].name);
+    }
+    free (rc->counts);
+}
+
+static void run_counter_add_run (struct run_counter *rc, char *name, long int runtime) {
+    for (int i = 0; i < rc->used; i++) {
+        if (!strcmp(name, rc->counts[i].name)) {
+            rc->counts[i].runs++;
+            rc->counts[i].runtime += runtime;
+            return;
+        }
+    }
+  
+    if (rc->capacity <= rc->used) {
+        rc->capacity *= 2;
+        rc->counts = realloc(rc->counts, rc->capacity*sizeof(struct run_count));
+    }
+    
+    size_t name_length = strlen(name);
+    rc->counts[rc->used].name = malloc(name_length + sizeof(char));
+    strcpy (rc->counts[rc->used].name, name);
+    
+    rc->counts[rc->used].runs = 1;
+    rc->counts[rc->used].runtime = runtime;
+    rc->used++;
+}
+
+
+char *futhark_context_json_to_table(char* json)
+{
+    char *json_copy = malloc (strlen(json) + sizeof(char));
+    strcpy (json_copy, json);
+    
+    struct str_builder builder;
+    str_builder_init(&builder);
+    
+    char *peak_memory = strstr (json_copy, "\"Peak memory usages\":");
+    char *events = strstr (json_copy, "\"Events\":");
+    
+    if (peak_memory != NULL) {
+        char* depth1;
+        strtok_r(peak_memory, "]", &depth1);
+        
+        char *depth2;
+        char *depth3;
+        strtok_r(peak_memory, "{", &depth2);
+        while (1) {
+            char* line = strtok_r(NULL, "}", &depth2);
+            if (line == NULL || strpbrk(line, "]") != NULL) {
+                break;
+            }
+            
+            strtok_r(line, ":", &depth3);
+            char *user = strtok_r(NULL, "\"", &depth3);
+            strtok_r(NULL, ":", &depth3);
+            char *usage = strtok_r(NULL, "}", &depth3);
+            
+            if (usage != NULL) {
+                long long usage_ll = atoll(usage);
+                str_builder(&builder, "Peak memory usage for '%s': %lld bytes.\n", user, usage_ll);
+            }
+        }
+    }
+    
+    if (events != NULL) {
+        char* depth1;
+        strtok_r(events, "]", &depth1);
+    
+        struct run_counter rc;
+        run_counter_init(&rc);
+        
+        char *depth2;
+        char *depth3;
+        strtok_r(events, "{", &depth2);
+        while (1) {
+            char* line = strtok_r(NULL, "}", &depth2);
+            if (line == NULL || strpbrk(line, "]") != NULL) {
+                break;
+            }
+            
+            strtok_r(line, ":", &depth3);
+            char *name = strtok_r(NULL, "\"", &depth3);
+            strtok_r(NULL, ":", &depth3);
+            char *start = strtok_r(NULL, ",", &depth3);
+            strtok_r(NULL, ":", &depth3);
+            char *end = strtok_r(NULL, "}", &depth3);
+            
+            if (start != NULL && end != NULL) {
+                long int start_l = atol(start);
+                long int end_l = atol(end);
+                if (start_l != 0 && end_l != 0) {
+                  long int runtime = end_l - start_l;
+                  run_counter_add_run(&rc, name, runtime);
+                }
+            }
+        }
+
+        int max_name_length = 0; 
+        for (int i = 0; i < rc.used; i++) {
+            int name_length = strlen(rc.counts[i].name);
+            if (max_name_length < name_length) {
+                max_name_length = name_length;
+            }
+        }
+
+        int total_runs = 0;
+        int total_runtime = 0;
+
+        for (int i = 0; i < rc.used; i++) {
+            str_builder(&builder, "%*s", -max_name_length, rc.counts[i].name);
+            if (rc.counts[i].runs == 0) {
+                str_builder(&builder, " ran 0 times\n");
+            } else {
+                long int avg = rc.counts[i].runtime / rc.counts[i].runs;
+                str_builder(&builder, " ran %5d times; avg: %8ldus; total: %8ldus\n", rc.counts[i].runs, avg, rc.counts[i].runtime);
+                total_runs += rc.counts[i].runs;
+                total_runtime += rc.counts[i].runtime;
+            }
+        }
+
+        str_builder(&builder, "%d operations with cumulative runtime: %6ldus\n", total_runs, total_runtime);
+
+        run_counter_free_contents(&rc);
+    }
+    
+    free(json_copy);
+
+    return builder.str;
 }
 
 // If profiling, produce an event associated with a profiling record.
