@@ -232,7 +232,7 @@ defineMemorySpace space = do
 
   onClear [C.citem|ctx->$id:peakname = 0;|]
 
-  let peakmsg = "Peak memory usage for " ++ spacedesc ++ ": %lld bytes.\n"
+  let peakmsg = "    {\"User\":\"" ++ spacedesc ++ "\",\"Usage\":%lld},\n"
   pure
     ( [unrefdef, allocdef, setdef],
       -- Do not report memory usage for DefaultSpace (CPU memory),
@@ -612,7 +612,12 @@ generateCommonLibFuns memreport = do
 
                  struct str_builder builder;
                  str_builder_init(&builder);
+                 
+                 str_builder(&builder, "{\n  \"Peak memory usages\":[\n");
                  $items:memreport
+                 builder.used-= 2;
+                 str_builder(&builder, "\n  ]\n}");
+                 
                  if (ctx->profiling) {
                    $items:profilereport
                  }

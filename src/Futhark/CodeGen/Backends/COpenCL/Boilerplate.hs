@@ -175,8 +175,13 @@ generateBoilerplate opencl_program opencl_prelude cost_centres kernels types fai
   GC.onClear
     [C.citem|if (ctx->error == NULL) { ctx->error = OPENCL_SUCCEED_NONFATAL(opencl_free_all(ctx)); }|]
 
-  GC.profileReport [C.citem|OPENCL_SUCCEED_FATAL(opencl_tally_profiling_records(ctx));|]
-  mapM_ GC.profileReport $ costCentreReport $ cost_centres ++ M.keys kernels
+  mapM_ GC.profileReport [C.citems|
+        OPENCL_SUCCEED_FATAL(opencl_tally_profiling_records(ctx));
+        builder.used-= 2;
+        str_builder(&builder, ",\n  \"Events\":[\n");
+        str_builder(&builder, ctx->report->str);
+        builder.used-= 2;
+        str_builder(&builder, "\n  ]\n}");|]
 
 kernelRuntime :: KernelName -> Name
 kernelRuntime = (<> "_total_runtime")

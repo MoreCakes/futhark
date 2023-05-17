@@ -628,12 +628,7 @@ static cl_int opencl_tally_profiling_records(struct futhark_context *ctx) {
 
     // OpenCL provides nanosecond resolution, but we want
     // microseconds.
-    str_builder(&builder, "    {\"Name\":\"%s\",\"Start\":%lu,\"End\":%lu}", record.name, start_t/1000, end_t/1000);
-    if (i+1 < ctx->profiling_records_used) {
-      str_builder(&builder, ",\n");
-    } else {
-      str_builder(&builder, "\n");
-    }
+    str_builder(&builder, "    {\"Name\":\"%s\",\"Start\":%lu,\"End\":%lu},\n", record.name, start_t/1000, end_t/1000);
 
     if ((err = clReleaseEvent(*record.event)) != CL_SUCCESS) {
       return err;
@@ -1194,7 +1189,6 @@ int backend_context_setup(struct futhark_context* ctx) {
   ctx->failure_is_an_option = 0;
   ctx->report = malloc(sizeof(struct str_builder));
   str_builder_init(ctx->report);
-  str_builder(ctx->report, "{\n  \"Events\":[\n");
   ctx->peak_mem_usage_device = 0;
   ctx->cur_mem_usage_device = 0;
 
