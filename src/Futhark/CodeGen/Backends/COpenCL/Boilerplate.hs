@@ -172,7 +172,7 @@ generateBoilerplate opencl_program opencl_prelude cost_centres kernels types fai
         str_builder(&builder, ",\n  \"Events\":[\n");
         str_builder(&builder, ctx->report->str);
         builder.used-= 2;
-        str_builder(&builder, "\n  ]\n}");|]
+        str_builder(&builder, "\n  ]\n}\n");|]
 
 kernelRuntime :: KernelName -> Name
 kernelRuntime = (<> "_total_runtime")

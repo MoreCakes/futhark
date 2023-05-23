@@ -501,7 +501,8 @@ int main(int argc, char** argv) {
     }
 
     if (print_report) {
-      char *report = futhark_context_report(ctx);
+      char *json = futhark_context_report(ctx);
+      char *report = futhark_context_json_to_table(json);
       fputs(report, stderr);
       free(report);
     }
