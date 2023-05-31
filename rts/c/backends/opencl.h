@@ -492,7 +492,6 @@ struct futhark_context {
   struct tuning_params tuning_params;
   // True if a potentially failing kernel has been enqueued.
   cl_int failure_is_an_option;
-  struct str_builder *report;
   int64_t peak_mem_usage_device;
   int64_t cur_mem_usage_device;
 
@@ -600,7 +599,7 @@ static char* mk_compile_opts(struct futhark_context *ctx,
 
 // Count up the runtime all the profiling_records that occured during execution.
 // Also clears the buffer of profiling_records.
-static cl_int opencl_tally_profiling_records(struct futhark_context *ctx) {
+static cl_int opencl_tally_profiling_records(struct futhark_context *ctx, struct str_builder *target) {
   struct str_builder builder;
   str_builder_init(&builder);
     
@@ -638,12 +637,24 @@ static cl_int opencl_tally_profiling_records(struct futhark_context *ctx) {
   
   ctx->profiling_records_used = 0;
   
-  str_builder(ctx->report, builder.str);
+  str_builder(target, builder.str);
   
   free(builder.str);
   
   return CL_SUCCESS;
-}struct run_counter {
+}
+
+// Clears the buffer of profiling_records.
+static void opencl_free_profiling_records(struct futhark_context *ctx) {
+  for (int i = 0; i < ctx->profiling_records_used; i++) {
+    struct profiling_record record = ctx->profiling_records[i];
+    free(record.event);
+  }
+  
+  ctx->profiling_records_used = 0;
+}
+
+struct run_counter {
     int capacity;
     int used;
     struct run_count *counts;
@@ -1336,8 +1347,6 @@ int backend_context_setup(struct futhark_context* ctx) {
     malloc(ctx->profiling_records_capacity *
            sizeof(struct profiling_record));
   ctx->failure_is_an_option = 0;
-  ctx->report = malloc(sizeof(struct str_builder));
-  str_builder_init(ctx->report);
   ctx->peak_mem_usage_device = 0;
   ctx->cur_mem_usage_device = 0;
 
@@ -1367,8 +1376,7 @@ int backend_context_setup(struct futhark_context* ctx) {
 void backend_context_teardown(struct futhark_context* ctx) {
   OPENCL_SUCCEED_FATAL(clReleaseMemObject(ctx->global_failure));
   OPENCL_SUCCEED_FATAL(clReleaseMemObject(ctx->global_failure_args));
-  (void)opencl_tally_profiling_records(ctx);
-  free(ctx->report->str);
+  opencl_free_profiling_records(ctx);
   free(ctx->profiling_records);
   (void)opencl_free_all(ctx);
   (void)clReleaseProgram(ctx->clprogram);

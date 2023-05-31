@@ -167,10 +167,9 @@ generateBoilerplate opencl_program opencl_prelude cost_centres kernels types fai
     [C.citem|if (ctx->error == NULL) { ctx->error = OPENCL_SUCCEED_NONFATAL(opencl_free_all(ctx)); }|]
 
   mapM_ GC.profileReport [C.citems|
-        OPENCL_SUCCEED_FATAL(opencl_tally_profiling_records(ctx));
         builder.used-= 2;
         str_builder(&builder, ",\n  \"Events\":[\n");
-        str_builder(&builder, ctx->report->str);
+        OPENCL_SUCCEED_FATAL(opencl_tally_profiling_records(ctx, &builder));
         builder.used-= 2;
         str_builder(&builder, "\n  ]\n}\n");|]
 
