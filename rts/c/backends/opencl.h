@@ -716,25 +716,25 @@ char *json_to_text(char* json)
     
     if (peak_memory != NULL) {
         char* depth1;
-        strtok_r(peak_memory, "]", &depth1);
+        strtok_r(peak_memory, "}", &depth1);
         
         char *depth2;
         char *depth3;
         strtok_r(peak_memory, "{", &depth2);
         while (1) {
-            char* line = strtok_r(NULL, "}", &depth2);
-            if (line == NULL || strpbrk(line, "]") != NULL) {
+            char* line = strtok_r(NULL, ",", &depth2);
+            if (line == NULL) {
                 break;
             }
             
-            strtok_r(line, ":", &depth3);
-            char *user = strtok_r(NULL, "\"", &depth3);
-            strtok_r(NULL, ":", &depth3);
-            char *usage = strtok_r(NULL, "}", &depth3);
-            
-            if (usage != NULL) {
+            char *space_start = strstr (line, "\"");
+            char *usage = strstr (line, ":");
+
+            if (space_start != NULL && usage != NULL) {
+                char *space = strtok_r(space_start, "\"", &depth3);
+                usage++;
                 long long usage_ll = atoll(usage);
-                str_builder(&builder, "Peak memory usage for '%s': %lld bytes.\n", user, usage_ll);
+                str_builder(&builder, "Peak memory usage for '%s': %lld bytes.\n", space, usage_ll);
             }
         }
     }
