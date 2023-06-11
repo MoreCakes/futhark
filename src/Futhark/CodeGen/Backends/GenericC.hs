@@ -122,7 +122,7 @@ opaqueDecls = declsCode isOpaqueDecl
 entryDecls = declsCode (== EntryDecl)
 miscDecls = declsCode (== MiscDecl)
 
-defineMemorySpace :: Space -> CompilerM op s ([C.Definition], C.BlockItem)
+defineMemorySpace :: Space -> CompilerM op s ([C.Definition], [C.BlockItem])
 defineMemorySpace space = do
   rm <- rawMemCType space
   earlyDecl
@@ -239,8 +239,9 @@ defineMemorySpace space = do
       -- because it would not be accurate anyway.  This whole
       -- tracking probably needs to be rethought.
       if space == DefaultSpace
-        then [C.citem|{}|]
-        else [C.citem|str_builder(&builder, $string:peakmsg, (long long) ctx->$id:peakname);|]
+        then [C.citems|{}|]
+        else [C.citems|str_builder(&builder, $string:peakmsg, (long long) ctx->$id:peakname);
+            ctx->$id:peakname = 0;|]
     )
   where
     mty = fatMemType space
@@ -462,7 +463,8 @@ $entry_point_decls
     Definitions types consts (Functions funs) = prog
 
     compileProgAction = do
-      (memfuns, memreport) <- mapAndUnzipM defineMemorySpace spaces
+      (memfuns, memreport') <- mapAndUnzipM defineMemorySpace spaces
+      let memreport = concat memreport'
 
       get_consts <- compileConstants consts
 
