@@ -703,7 +703,7 @@ static void run_counter_add_run (struct run_counter *rc, char *name, long int ru
 }
 
 
-char *futhark_context_json_to_table(char* json)
+char *json_to_text(char* json)
 {
     char *json_copy = malloc (strlen(json) + sizeof(char));
     strcpy (json_copy, json);
