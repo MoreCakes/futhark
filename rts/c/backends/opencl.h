@@ -600,9 +600,6 @@ static char* mk_compile_opts(struct futhark_context *ctx,
 // Count up the runtime all the profiling_records that occured during execution.
 // Also clears the buffer of profiling_records.
 static cl_int opencl_tally_profiling_records(struct futhark_context *ctx, struct str_builder *target) {
-  struct str_builder builder;
-  str_builder_init(&builder);
-    
   cl_int err;
   for (int i = 0; i < ctx->profiling_records_used; i++) {
     struct profiling_record record = ctx->profiling_records[i];
@@ -627,7 +624,7 @@ static cl_int opencl_tally_profiling_records(struct futhark_context *ctx, struct
 
     // OpenCL provides nanosecond resolution, but we want
     // microseconds.
-    str_builder(&builder, "    {\"Name\":\"%s\",\"Start\":%lu,\"End\":%lu},\n", record.name, start_t/1000, end_t/1000);
+    str_builder(target, "    {\"Name\":\"%s\",\"Start\":%lu,\"End\":%lu},\n", record.name, start_t/1000, end_t/1000);
 
     if ((err = clReleaseEvent(*record.event)) != CL_SUCCESS) {
       return err;
@@ -636,10 +633,6 @@ static cl_int opencl_tally_profiling_records(struct futhark_context *ctx, struct
   }
   
   ctx->profiling_records_used = 0;
-  
-  str_builder(target, builder.str);
-  
-  free(builder.str);
   
   return CL_SUCCESS;
 }
