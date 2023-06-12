@@ -166,7 +166,7 @@ generateBoilerplate opencl_program opencl_prelude cost_centres kernels types fai
 
   mapM_ GC.profileReport [C.citems|
         builder.used-= 2;
-        str_builder(&builder, ",\n  \"Events\":[\n");
+        str_builder(&builder, ",\n  \"Events\":[ \n");
         OPENCL_SUCCEED_FATAL(opencl_tally_profiling_records(ctx, &builder));
         builder.used-= 2;
         str_builder(&builder, "\n  ]\n}\n");|]

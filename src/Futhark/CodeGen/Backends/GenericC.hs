@@ -615,7 +615,7 @@ generateCommonLibFuns memreport = do
                  struct str_builder builder;
                  str_builder_init(&builder);
                  
-                 str_builder(&builder, "{\n  \"Peak memory usages\":{");
+                 str_builder(&builder, "{\n  \"Peak memory usages\":{  ");
                  $items:memreport
                  builder.used-= 2;
                  str_builder(&builder, "}\n}");
